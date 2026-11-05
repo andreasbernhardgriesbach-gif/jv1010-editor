@@ -120,20 +120,58 @@ main{max-width:1400px;margin:0 auto;padding:6px 16px 16px}
 .k.w{background:#ecebe6;height:84px;z-index:1}.k.b{background:#1b1b1d;height:52px;z-index:2}
 .k.dn{background:var(--arc)!important}
 
+/* ---------- Kompakt / Tablet: alles auf einen Bildschirm ---------- */
+html,body{height:100%}
+#app{display:flow-root}
+.rack{margin:6px auto;padding:0 10px}
+.ear{width:26px}.ear::before,.ear::after{left:5px}
+.front{padding:8px 14px;gap:8px 18px;flex-wrap:nowrap}
+.col{display:flex;flex-direction:column;gap:6px}
+.front>*{flex:none}.front .row{flex-wrap:nowrap}
+.brand{flex-direction:row;align-items:baseline;gap:10px;min-width:0}.brand .m{font-size:17px}
+.lcd{font-size:15px;padding:5px 10px;border-width:5px;width:340px;min-width:0}
+.hb{gap:3px}.hb .cap{min-width:40px;height:20px;font-size:9.5px;padding:0 5px}
+.dial{width:62px;height:62px}.dial::after{top:9px}
+.setup{display:block;padding:0 16px 4px}
+.setup>summary{cursor:pointer;list-style:none;display:flex;gap:10px;align-items:center;padding:4px 0;color:var(--print)}
+.setup>summary::-webkit-details-marker{display:none}
+.setup>summary .tg{background:#2c2e32;border:1px solid var(--line);border-radius:4px;padding:3px 9px;font-size:12px}
+.setup[open]>summary .tg::after{content:" ▴"}.setup:not([open])>summary .tg::after{content:" ▾"}
+.setup>summary #status{color:var(--print-dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.setupbody{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:4px 0 6px}
+.setupbody .note{flex-basis:100%;margin:4px 0 0}
+main{padding:2px 16px 6px}
+.pagehead{margin:2px 0 6px}
+.sheet{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.sheet>.box{flex:1 1 300px;max-width:100%}
+.sheet>.box.wide{flex:3 1 620px}
+.box{padding:7px 10px 8px}.box h3{margin-bottom:6px}
+.ctls{gap:6px 6px}
+.kn{width:64px}.kn svg{width:40px;height:40px}.kn .kl{min-height:22px}
+.env{height:120px;margin-bottom:6px}
+.adsr{padding:5px 8px;margin-bottom:6px}.adsr .kn{width:76px}.adsr .kn svg{width:48px;height:48px}
+.lfo{height:46px}
+.kbdbar{margin-top:8px}
+#kbd{height:64px;margin-top:4px}.k.w{height:64px}.k.b{height:40px}
+#fitBtn.on{border-color:var(--arc);color:var(--arc)}
+@media(max-width:900px){.front{flex-wrap:wrap}.front .row{flex-wrap:wrap}.front>*{flex:initial}}
 @media(max-width:700px){.front{gap:14px}.lcd{font-size:14px;min-width:0}.ear{display:none}.rack{padding:0 8px}.sheet{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
+<div id="app">
 <div class="rack">
  <div class="ear"></div>
  <div class="front">
-  <div class="brand"><span class="m">JV-1010</span><span class="s">Patch Editor</span></div>
-
-  <div class="lcd" id="lcd"><div id="lcd1"></div><div id="lcd2"></div></div>
-
-  <div class="sec"><span class="t">Common</span><div class="row" id="pgC"></div></div>
-  <div class="sec"><span class="t">Tone</span><div class="row" id="pgT"></div></div>
+  <div class="col">
+   <div class="brand"><span class="m">JV-1010</span><span class="s">Patch Editor</span></div>
+   <div class="lcd" id="lcd"><div id="lcd1"></div><div id="lcd2"></div></div>
+  </div>
+  <div class="col">
+   <div class="sec"><span class="t">Common</span><div class="row" id="pgC"></div></div>
+   <div class="sec"><span class="t">Tone</span><div class="row" id="pgT"></div></div>
+  </div>
 
   <div class="sec"><span class="t">Tone Switch / Select</span>
     <div class="row" id="tsw"></div>
@@ -151,8 +189,10 @@ main{max-width:1400px;margin:0 auto;padding:6px 16px 16px}
  <div class="ear"></div>
 </div>
 
-<div class="setup">
-  <span class="grp"><span class="mled" id="mled"></span><button id="connect">MIDI verbinden</button>
+<details class="setup" id="setupD" open>
+ <summary><span class="tg">Setup</span><span class="mled" id="mled"></span><span id="status">Nicht verbunden</span></summary>
+ <div class="setupbody">
+  <span class="grp"><button id="connect">MIDI verbinden</button>
     Out <select id="outSel"></select> In <select id="inSel"></select></span>
   <span class="grp">Device ID <input type="number" id="devId" min="17" max="32" value="17" style="width:58px">
     Kanal <input type="number" id="chan" min="1" max="16" value="1" style="width:52px"></span>
@@ -166,9 +206,18 @@ main{max-width:1400px;margin:0 auto;padding:6px 16px 16px}
     <input type="number" id="lsb" value="0" min="0" max="127" style="width:52px" title="Bank LSB">
     Nr. <input type="number" id="pc" value="1" min="1" max="128" style="width:58px"><button id="sendPc">Wählen</button></span>
   <span class="grp"><span class="mled" id="kled" title="Empfang vom Keyboard"></span>Keyboard <select id="kbSel"></select><button id="learn">Learn</button><button id="clearMap">Zuweisungen löschen</button></span>
-  <span id="status">Nicht verbunden</span>
+  <button id="fitBtn" class="on" title="Inhalt automatisch an den Bildschirm anpassen">⤢ Bildschirm füllen</button>
   <span id="maps" class="maps"></span>
-</div>
+  <p class="note" id="noteP">
+   Bedienung: Regler ziehen (Shift = fein), Mausrad, Doppelklick = Standardwert. Ein angeklickter Parameter erscheint im LCD und lässt sich auch mit dem VALUE-Rad und DEC/INC ändern.
+   Keyboard (z. B. Launchkey): wird an den JV weitergeleitet und beim ersten Tastendruck automatisch erkannt. Learn: Learn drücken, Parameter antippen, Regler am Keyboard drehen. Tone SELECT mit Shift- oder Ctrl-Klick wählt mehrere Tones gleichzeitig: Änderungen gelten dann für alle gewählten (wie am JV).
+   Hüllkurven: Punkte direkt in der Grafik ziehen.<br>
+   Am JV-1010: COMPUTER-Schalter auf MIDI, Patch-Modus. SysEx-Empfang ist immer aktiv, Device ID fest 17. Der Editor bearbeitet den temporären Patch. Dauerhaft speichern mit WRITE am Gerät.
+   Adressen nach der JV-2080-Implementierung (Patch Common 74 Bytes, Tone 129 Bytes). EFX-Parameterreihenfolge gemäss Messungen von
+   <a href="https://github.com/tgoelles/jv2080-max-for-live" style="color:var(--arc)">jv2080-max-for-live</a> (T. Goelles, CC BY-NC 4.0).
+  </p>
+ </div>
+</details>
 
 <main>
   <div class="pagehead"><h2 id="pgTitle"></h2><span class="sub" id="pgSub"></span></div>
@@ -178,15 +227,8 @@ main{max-width:1400px;margin:0 auto;padding:6px 16px 16px}
     <button id="panic">All Notes Off</button><span>Tastatur: A W S E D F T G Z/Y H U J K</span></div>
   <div id="kbd"></div>
 
-  <p class="note">
-   Bedienung: Regler ziehen (Shift = fein), Mausrad, Doppelklick = Standardwert. Ein angeklickter Parameter erscheint im LCD und lässt sich auch mit dem VALUE-Rad und DEC/INC ändern.
-   Keyboard (z. B. Launchkey): wird an den JV weitergeleitet. Learn: Learn drücken, Parameter antippen, Regler am Keyboard drehen. Tone SELECT mit Shift- oder Ctrl-Klick wählt mehrere Tones gleichzeitig: Änderungen gelten dann für alle gewählten (wie am JV).
-   Hüllkurven: Punkte direkt in der Grafik ziehen.<br>
-   Voraussetzungen am JV-1010: Patch-Modus, SYSTEM › MIDI › Rx SysEx = ON, Device ID 17. Der Editor bearbeitet den temporären Patch. Dauerhaft speichern mit WRITE am Gerät.
-   Adressen nach der JV-2080-Implementierung (Patch Common 74 Bytes, Tone 129 Bytes). EFX-Parameterreihenfolge gemäss Messungen von
-   <a href="https://github.com/tgoelles/jv2080-max-for-live" style="color:var(--arc)">jv2080-max-for-live</a> (T. Goelles, CC BY-NC 4.0).
-  </p>
 </main>
+</div>
 
 <script>
 "use strict";
@@ -374,6 +416,7 @@ function pickPorts(){
   if(kbIn)kbIn.onmidimessage=null;kbIn=access.inputs.get($('#kbSel').value)||null;
   if(kbIn&&kbIn===inp){inp.onmidimessage=e=>{if(e.data[0]===0xF0)absorb(Array.from(e.data));else onKb(e)}}else if(kbIn)kbIn.onmidimessage=onKb;
   store('out',$('#outSel').value);store('in',$('#inSel').value);store('kb',$('#kbSel').value);$('#kled').className='mled'+(kbIn?' ok':'');
+  if(out&&!pickPorts.done){pickPorts.done=1;$('#setupD').open=false}
   $('#mled').className='mled'+(out?' ok':'');status(out?'Verbunden: '+out.name:'Kein MIDI-Ausgang');
 }
 let rxT=0,rrT=0;
@@ -536,7 +579,7 @@ function envBox(box,kind){
   const e=ENV[kind],ps=envParams(kind),tP=ps.slice(0,4),lP=ps.slice(4);
   const ad=el('div','ctls adsr');ad.append(el('span','adsrl','ADSR'));[[tP[0],'ATTACK'],[tP[1],'DECAY'],[lP[2],'SUSTAIN'],[tP[3],'RELEASE']].forEach(([p,l])=>ad.append(knob(p,'T',l)));box.append(ad);
   const svg=SVG('svg',{class:'env',viewBox:'0 0 600 150'});box.append(svg);
-  let W=600,seg=0;const H=150,pad=12,susW=70;const dims=()=>{W=Math.round(svg.getBoundingClientRect().width)||600;seg=(W-2*pad-susW)/4;svg.setAttribute('viewBox',`0 0 ${W} ${H}`)};dims();
+  let W=600,seg=0,H=120;const pad=12,susW=70;const dims=()=>{W=svg.clientWidth||600;H=svg.clientHeight||120;seg=(W-2*pad-susW)/4;svg.setAttribute('viewBox',`0 0 ${W} ${H}`)};dims();
   const lvY=v=>e.bip?H/2-((v-63)/63)*(H/2-pad):H-pad-(v/127)*(H-2*pad);
   const yLv=y=>e.bip?Math.round(63-((y-H/2)/(H/2-pad))*63):Math.round((H-pad-y)/(H-2*pad)*127);
   function pts(){const a=S.tones[prim()],t=tP.map(p=>a[p.o]),l=lP.map(p=>a[p.o]);let x=pad;const r=[[x,lvY(e.bip?63:0)]];
@@ -574,6 +617,17 @@ function lfoBox(box,n){
 }
 
 /* ================= Seite rendern ================= */
+/* ---- an Bildschirm anpassen ---- */
+let fitOn=true;try{fitOn=localStorage.getItem('jv1010.fit')!=='0'}catch(e){}
+let fitRaf=0;
+function fit(){cancelAnimationFrame(fitRaf);fitRaf=requestAnimationFrame(()=>{
+  const app=$('#app');app.style.zoom=1;document.body.style.overflow='';
+  if(!fitOn)return;
+  const s=Math.min(1,innerWidth/app.scrollWidth,innerHeight/(app.scrollHeight+8));
+  app.style.zoom=Math.max(.5,s).toFixed(3);
+  document.body.style.overflow=s>=.5?'hidden':'';
+})}
+addEventListener('resize',fit);addEventListener('orientationchange',fit);
 function render(){
   reg.clear();buildPanel();
   const pg=PAGES[page],scope=pg.s,sh=$('#sheet');sh.innerHTML='';
@@ -591,6 +645,7 @@ function render(){
     sh.append(box);
   });
   if(focus)setFocus(focus.p,focus.scope);else lcd();
+  fit();
 }
 // EFX-Typwechsel: Seite neu aufbauen (andere Parameter)
 const _sp=setParam;
@@ -639,6 +694,9 @@ $('#clearMap').onclick=()=>{ccMap={};saveMap();status('Zuweisungen gelöscht')};
 showMaps();
 $('#panic').onclick=()=>{for(let c=0;c<16;c++){tx([0xB0|c,123,0]);tx([0xB0|c,120,0])}held.clear();document.querySelectorAll('.k.dn').forEach(k=>k.classList.remove('dn'))};
 ['devId','chan'].forEach(id=>{const v=recall(id);if(v)$('#'+id).value=v;$('#'+id).onchange=()=>store(id,$('#'+id).value)});
+$('#fitBtn').classList.toggle('on',fitOn);
+$('#fitBtn').onclick=()=>{fitOn=!fitOn;$('#fitBtn').classList.toggle('on',fitOn);try{localStorage.setItem('jv1010.fit',fitOn?'1':'0')}catch(e){}fit()};
+$('#setupD').addEventListener('toggle',fit);
 render();buildKbd();
 </script>
 </body>
