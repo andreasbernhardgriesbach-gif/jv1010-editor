@@ -362,6 +362,11 @@ function fillPorts(){
   [...access.inputs.values()].forEach(p=>{const o=el('option',null,p.name);o.value=p.id;ks.append(o)});
   const km=[...ks.options].find(o=>o.value&&o.value===kc)||[...ks.options].find(o=>/launchkey/i.test(o.text)&&!/daw|incontrol/i.test(o.text))||[...ks.options].find(o=>/launchkey/i.test(o.text));
   if(km)ks.value=km.value;pickPorts();
+  // Auto-Erkennung: alle Eingänge abhören, Noten auf einem anderen Port -> als Keyboard übernehmen
+  [...access.inputs.values()].forEach(port=>{if(sniffed.has(port.id))return;sniffed.add(port.id);
+    port.addEventListener('midimessage',e=>{const st=e.data[0]&0xF0;if(port===kbIn||e.data[0]>=0xF0)return;
+      if(port===inp&&st!==0x90)return;
+      if(st===0x90&&e.data[2]>0){$('#kbSel').value=port.id;pickPorts();status('Keyboard erkannt: '+port.name)}})});
 }
 function pickPorts(){
   out=access.outputs.get($('#outSel').value)||null;
@@ -374,7 +379,7 @@ function pickPorts(){
 let rxT=0,rrT=0;
 
 /* ================= Keyboard (Launchkey) & Learn ================= */
-let kbIn=null,learn=false,ccMap={};
+let kbIn=null,learn=false,ccMap={};const sniffed=new Set();
 try{ccMap=JSON.parse(localStorage.getItem('jv1010.ccmap')||'{}')}catch(e){ccMap={}}
 function saveMap(){try{localStorage.setItem('jv1010.ccmap',JSON.stringify(ccMap))}catch(e){}showMaps()}
 function findParam(scope,o){
