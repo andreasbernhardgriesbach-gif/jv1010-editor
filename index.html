@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JV-1010 Editor</title>
+<style>
+/* ===== Optik: alle Farben und Masse hier ===== */
+:root{
+  --room:#121315;          /* Hintergrund */
+  --panel:#2a2c2f;         /* Frontplatte */
+  --panel-hi:#34373b;
+  --panel-lo:#1f2124;
+  --print:#d8d6cf;         /* Beschriftung auf dem Panel */
+  --print-dim:#9a9890;
+  --line:#45484d;
+  --btn:#3c3f43;           /* Gummitasten */
+  --btn-hi:#4a4d52;
+  --btn-txt:#e4e2da;
+  --led-off:#3b1d1a;
+  --led-on:#ff3b2a;
+  --lcd-bg:#a9c23a;        /* hinterleuchtetes LCD */
+  --lcd-bg2:#93ad2c;
+  --lcd-px:#1c2410;
+  --lcd-ghost:rgba(28,36,16,.08);
+  --accent:#e8e3c8;        /* Zeiger / Wertebögen */
+  --arc:#c9d65a;
+  --font-panel:"Helvetica Neue",Arial,sans-serif;
+  --font-lcd:"Courier New",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--room);color:var(--print);font:13px/1.3 var(--font-panel)}
+button,select,input{font:inherit;color:inherit}
+
+/* ---------- Rack-Panel ---------- */
+.rack{display:flex;margin:12px auto;max-width:1400px;padding:0 16px}
+.ear{width:34px;flex:none;background:linear-gradient(90deg,var(--panel-lo),var(--panel) 40%,var(--panel-lo));border-radius:3px;position:relative}
+.ear::before,.ear::after{content:"";position:absolute;left:9px;width:16px;height:9px;border-radius:5px;background:#0b0b0c;box-shadow:inset 0 1px 2px #000}
+.ear::before{top:16px}.ear::after{bottom:16px}
+.front{flex:1;min-width:0;background:linear-gradient(180deg,var(--panel-hi),var(--panel) 18%,var(--panel) 82%,var(--panel-lo));border-top:1px solid #4d5055;border-bottom:1px solid #111;padding:14px 18px;display:flex;flex-wrap:wrap;gap:18px 26px;align-items:center}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:120px}
+.brand .m{font-weight:700;font-size:22px;letter-spacing:.04em;color:var(--print)}
+.brand .s{font-size:9.5px;letter-spacing:.28em;color:var(--print-dim);text-transform:uppercase}
+.sec{display:flex;flex-direction:column;gap:6px}
+.sec>.t{font-size:9.5px;letter-spacing:.2em;color:var(--print-dim);text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+
+/* LCD */
+.lcd{background:linear-gradient(180deg,var(--lcd-bg),var(--lcd-bg2));color:var(--lcd-px);font:700 17px/1.25 var(--font-lcd);padding:8px 12px;border-radius:3px;border:6px solid #141516;box-shadow:inset 0 0 14px rgba(0,0,0,.35),0 0 0 1px #000;width:min(440px,100%);min-width:260px;letter-spacing:.06em}
+.lcd div{white-space:pre;overflow:hidden;text-shadow:1px 1px 0 var(--lcd-ghost)}
+
+/* Tasten mit LED */
+.hb{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;user-select:none}
+.hb .led{width:7px;height:7px;border-radius:50%;background:var(--led-off);box-shadow:inset 0 1px 1px #000}
+.hb.on .led{background:var(--led-on);box-shadow:0 0 6px var(--led-on)}
+.hb .cap{min-width:44px;height:22px;padding:0 6px;border-radius:3px;background:linear-gradient(180deg,var(--btn-hi),var(--btn));border:1px solid #17181a;box-shadow:0 2px 0 #121314;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:.06em;color:var(--btn-txt)}
+.hb:active .cap{transform:translateY(1px);box-shadow:0 1px 0 #121314}
+.hb .l{font-size:9.5px;color:var(--print-dim);letter-spacing:.06em}
+
+/* Value-Rad */
+.dial{width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#55585d,#232528 70%);border:2px solid #0e0f10;box-shadow:0 3px 6px #000,inset 0 1px 0 #666;position:relative;cursor:ns-resize;touch-action:none}
+.dial::after{content:"";position:absolute;width:10px;height:10px;border-radius:50%;background:#18191b;box-shadow:inset 0 1px 2px #000;left:50%;top:12px;transform:translateX(-50%)}
+.dialwrap{display:flex;align-items:center;gap:10px}
+
+/* ---------- Setup-Leiste ---------- */
+.setup{max-width:1400px;margin:0 auto;padding:0 16px 6px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;color:var(--print-dim);font-size:12px}
+.setup select,.setup input{background:#1c1d20;border:1px solid var(--line);border-radius:4px;padding:5px 7px;color:var(--print)}
+.setup button{background:#2c2e32;border:1px solid var(--line);border-radius:4px;padding:5px 10px;cursor:pointer;color:var(--print)}
+.setup button:hover{border-color:var(--arc)}
+.setup .grp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.mled{width:9px;height:9px;border-radius:50%;background:#333;display:inline-block}
+.mled.ok{background:#5ad35a;box-shadow:0 0 5px #5ad35a}.mled.rx{background:var(--led-on);box-shadow:0 0 5px var(--led-on)}
+
+/* ---------- Edit-Bereich ---------- */
+main{max-width:1400px;margin:0 auto;padding:6px 16px 16px}
+.pagehead{display:flex;align-items:baseline;gap:12px;margin:4px 0 10px;flex-wrap:wrap}
+.pagehead h2{margin:0;font-size:15px;letter-spacing:.14em;text-transform:uppercase}
+.pagehead .sub{color:var(--print-dim);font-size:12px}
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.box{background:var(--panel);border:1px solid #3a3d41;border-radius:4px;padding:10px 12px 12px}
+.box.wide{grid-column:1/-1}
+.box h3{margin:0 0 8px;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--print);border-bottom:1px solid var(--line);padding-bottom:4px;display:flex;justify-content:space-between}
+.box h3 small{color:var(--print-dim);letter-spacing:.05em;text-transform:none;font-weight:400}
+.ctls{display:flex;flex-wrap:wrap;gap:10px 8px}
+
+/* Drehregler */
+.kn{width:72px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:ns-resize;user-select:none;touch-action:none;border-radius:4px;padding:3px 0}
+.kn svg{width:44px;height:44px}
+.kn .kl{font-size:10px;text-align:center;color:var(--print);line-height:1.15;min-height:23px;display:flex;align-items:center}
+.kn .kv{font:600 11px var(--font-lcd);color:var(--arc)}
+.kn.focus,.sel.focus{background:rgba(201,214,90,.12);outline:1px solid rgba(201,214,90,.4)}
+/* Auswahlfelder */
+.sel{display:flex;flex-direction:column;gap:3px;min-width:120px;flex:1 1 140px;max-width:240px;padding:3px;border-radius:4px}
+.sel label{font-size:10px;color:var(--print)}
+.sel select,.sel input{background:var(--lcd-bg2);color:var(--lcd-px);font:700 12px var(--font-lcd);border:2px solid #141516;border-radius:2px;padding:4px 5px;width:100%}
+.sel.wide{max-width:none;flex-basis:260px}
+/* Hüllkurve */
+.env{width:100%;height:150px;background:#18191b;border:1px solid #0d0d0e;border-radius:3px;touch-action:none;margin-bottom:8px;display:block}
+.env .h{cursor:grab}
+.env text{font:10px var(--font-panel);fill:var(--print-dim)}
+.lfo{width:100%;height:60px;background:#18191b;border-radius:3px;margin-bottom:8px;display:block}
+.matrix{display:grid;grid-template-columns:auto repeat(4,1fr);gap:6px 10px;align-items:center}
+.matrix .mh{font-size:10px;color:var(--print-dim);letter-spacing:.1em;text-transform:uppercase}
+.matrix .cell{display:flex;gap:6px;align-items:center}
+.matrix select{background:var(--lcd-bg2);color:var(--lcd-px);font:700 11px var(--font-lcd);border:2px solid #141516;border-radius:2px;padding:3px}
+.matrix .kn{width:58px}
+.adsr{background:#232528;border:1px solid #3a3d41;border-radius:4px;padding:8px;margin-bottom:8px;align-items:center}
+.adsr .kn{width:84px}.adsr .kn svg{width:56px;height:56px}.adsr .kl{font-weight:700;letter-spacing:.08em}
+.adsrl{font-weight:700;letter-spacing:.2em;color:var(--arc);writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px}
+.setup button.armed{background:var(--led-on);color:#fff;border-color:var(--led-on)}
+.maps{flex-basis:100%;font-size:11px;color:var(--print-dim)}
+.maps b{color:var(--arc);font-weight:600}
+.note{color:var(--print-dim);font-size:12px;margin:12px 0 0;line-height:1.5}
+
+/* Klaviatur */
+.kbdbar{display:flex;gap:10px;align-items:center;margin-top:14px;color:var(--print-dim);font-size:12px;flex-wrap:wrap}
+.kbdbar button{background:#2c2e32;border:1px solid var(--line);border-radius:4px;padding:4px 10px;cursor:pointer}
+#kbd{position:relative;height:84px;margin-top:6px;user-select:none;touch-action:none}
+.k{position:absolute;top:0;border:1px solid #000;border-radius:0 0 3px 3px}
+.k.w{background:#ecebe6;height:84px;z-index:1}.k.b{background:#1b1b1d;height:52px;z-index:2}
+.k.dn{background:var(--arc)!important}
+
+@media(max-width:700px){.front{gap:14px}.lcd{font-size:14px;min-width:0}.ear{display:none}.rack{padding:0 8px}.sheet{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="rack">
+ <div class="ear"></div>
+ <div class="front">
+  <div class="brand"><span class="m">JV-1010</span><span class="s">Patch Editor</span></div>
+
+  <div class="lcd" id="lcd"><div id="lcd1"></div><div id="lcd2"></div></div>
+
+  <div class="sec"><span class="t">Common</span><div class="row" id="pgC"></div></div>
+  <div class="sec"><span class="t">Tone</span><div class="row" id="pgT"></div></div>
+
+  <div class="sec"><span class="t">Tone Switch / Select</span>
+    <div class="row" id="tsw"></div>
+    <div class="row" id="tsel"></div>
+  </div>
+
+  <div class="sec"><span class="t">Value</span>
+   <div class="dialwrap">
+    <div class="hb" id="dec"><span class="led" style="visibility:hidden"></span><span class="cap">DEC</span></div>
+    <div class="dial" id="dial" title="Ziehen oder Mausrad: Wert des gewählten Parameters"></div>
+    <div class="hb" id="inc"><span class="led" style="visibility:hidden"></span><span class="cap">INC</span></div>
+   </div>
+  </div>
+ </div>
+ <div class="ear"></div>
+</div>
+
+<div class="setup">
+  <span class="grp"><span class="mled" id="mled"></span><button id="connect">MIDI verbinden</button>
+    Out <select id="outSel"></select> In <select id="inSel"></select></span>
+  <span class="grp">Device ID <input type="number" id="devId" min="17" max="32" value="17" style="width:58px">
+    Kanal <input type="number" id="chan" min="1" max="16" value="1" style="width:52px"></span>
+  <span class="grp"><button id="load">⇩ Vom JV laden</button><button id="sendAll">⇧ Alles senden</button>
+    <button id="saveSyx">.syx speichern</button><button id="openSyx">.syx laden</button><input type="file" id="file" accept=".syx" hidden>
+    <button id="init">Init</button></span>
+  <span class="grp">Bank <select id="bank">
+      <option value="80,0">USER</option><option value="81,0">PR-A</option><option value="81,1">PR-B</option><option value="81,2">PR-C</option><option value="81,3">PR-D</option>
+      <option value="84,0">EXP 1–128</option><option value="84,1">EXP 129–256</option><option value="custom">manuell</option></select>
+    <input type="number" id="msb" value="80" min="0" max="127" style="width:52px" title="Bank MSB">
+    <input type="number" id="lsb" value="0" min="0" max="127" style="width:52px" title="Bank LSB">
+    Nr. <input type="number" id="pc" value="1" min="1" max="128" style="width:58px"><button id="sendPc">Wählen</button></span>
+  <span class="grp"><span class="mled" id="kled" title="Empfang vom Keyboard"></span>Keyboard <select id="kbSel"></select><button id="learn">Learn</button><button id="clearMap">Zuweisungen löschen</button></span>
+  <span id="status">Nicht verbunden</span>
+  <span id="maps" class="maps"></span>
+</div>
+
+<main>
+  <div class="pagehead"><h2 id="pgTitle"></h2><span class="sub" id="pgSub"></span></div>
+  <div class="sheet" id="sheet"></div>
+
+  <div class="kbdbar">Oktave <button id="octDn">−</button><span id="octLbl">C3</span><button id="octUp">+</button>
+    <button id="panic">All Notes Off</button><span>Tastatur: A W S E D F T G Z/Y H U J K</span></div>
+  <div id="kbd"></div>
+
+  <p class="note">
+   Bedienung: Regler ziehen (Shift = fein), Mausrad, Doppelklick = Standardwert. Ein angeklickter Parameter erscheint im LCD und lässt sich auch mit dem VALUE-Rad und DEC/INC ändern.
+   Keyboard (z. B. Launchkey): wird an den JV weitergeleitet. Learn: Learn drücken, Parameter antippen, Regler am Keyboard drehen. Tone SELECT mit Shift- oder Ctrl-Klick wählt mehrere Tones gleichzeitig: Änderungen gelten dann für alle gewählten (wie am JV).
+   Hüllkurven: Punkte direkt in der Grafik ziehen.<br>
+   Voraussetzungen am JV-1010: Patch-Modus, SYSTEM › MIDI › Rx SysEx = ON, Device ID 17. Der Editor bearbeitet den temporären Patch. Dauerhaft speichern mit WRITE am Gerät.
+   Adressen nach der JV-2080-Implementierung (Patch Common 74 Bytes, Tone 129 Bytes). EFX-Parameterreihenfolge gemäss Messungen von
+   <a href="https://github.com/tgoelles/jv2080-max-for-live" style="color:var(--arc)">jv2080-max-for-live</a> (T. Goelles, CC BY-NC 4.0).
+  </p>
+</main>
+
+<script>
+"use strict";
+const EFXT=["STEREO-EQ","OVERDRIVE","DISTORTION","PHASER","SPECTRUM","ENHANCER","AUTO-WAH","ROTARY","COMPRESSOR","LIMITER","HEXA-CHORUS","TREMOLO-CHORUS","SPACE-D","STEREO-CHORUS","STEREO-FLANGER","STEP-FLANGER","STEREO-DELAY","MODULATION-DELAY","TRIPLE-TAP-DELAY","QUADRUPLE-TAP-DELAY","TIME-CONTROL-DELAY","2VOICE-PITCH-SHIFTER","FBK-PITCH-SHIFTER","REVERB","GATE-REVERB","OVERDRIVE→CHORUS","OVERDRIVE→FLANGER","OVERDRIVE→DELAY","DISTORTION→CHORUS","DISTORTION→FLANGER","DISTORTION→DELAY","ENHANCER→CHORUS","ENHANCER→FLANGER","ENHANCER→DELAY","CHORUS→DELAY","FLANGER→DELAY","CHORUS→FLANGER","CHORUS/DELAY","FLANGER/DELAY","CHORUS/FLANGER"];
+const EFXW=[[["Low Freq","lowf",null,1],["Low Gain","db",null,30],["High Freq","highf",null,1],["High Gain","db",null,30],["P1 Freq","freq",null,16],["P1 Q","q",null,4],["P1 Gain","db",null,30],["P2 Freq","freq",null,16],["P2 Q","q",null,4],["P2 Gain","db",null,30],["Level","lvl",null,127],null],[["Drive","lvl",null,127],["Pan","pan",null,127],["Amp Type","amp",null,3],["Low Gain","db",null,30],["High Gain","db",null,30],["Level","lvl",null,127],null,null,null,null,null,null],[["Drive","lvl",null,127],["Pan","pan",null,127],["Amp Type","amp",null,3],["Low Gain","db",null,30],["High Gain","db",null,30],["Level","lvl",null,127],null,null,null,null,null,null],[["Manual","raw","phman",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["Resonance","lvl",null,127],["Mix","lvl",null,127],["Pan","pan",null,127],["Level","lvl",null,127],null,null,null,null,null],[["Band 1","db",null,30],["Band 2","db",null,30],["Band 3","db",null,30],["Band 4","db",null,30],["Band 5","db",null,30],["Band 6","db",null,30],["Band 7","db",null,30],["Band 8","db",null,30],["Q","q",null,4],["Pan","pan",null,127],["Level","lvl",null,127],null],[["Sens","lvl",null,127],["Mix","lvl",null,127],["Low Gain","db",null,30],["High Gain","db",null,30],["Level","lvl",null,127],null,null,null,null,null,null,null],[["Filter","wah",null,1],["Rate","raw","rate",125],["Depth","lvl",null,127],["Sens","lvl",null,127],["Manual","lvl",null,127],["Peak","lvl",null,127],["Level","lvl",null,127],null,null,null,null,null],[["Hi Slow","raw","rate",125],["Lo Slow","raw","rate",125],["Hi Fast","raw","rate",125],["Lo Fast","raw","rate",125],["Speed","speed",null,1],["Hi Accel","accel",null,15],["Lo Accel","accel",null,15],["Hi Level","lvl",null,127],["Lo Level","lvl",null,127],["Separation","lvl",null,127],["Level","lvl",null,127],null],[["Sustain","lvl",null,127],["Attack","lvl",null,127],["Pan","pan",null,127],["Post Gain","post",null,3],["Low Gain","db",null,30],["High Gain","db",null,30],["Level","lvl",null,127],null,null,null,null,null],[["Threshold","lvl",null,127],["Release","lvl",null,127],["Ratio","ratio",null,3],["Pan","pan",null,127],["Post Gain","post",null,3],["Low Gain","db",null,30],["High Gain","db",null,30],["Level","lvl",null,127],null,null,null,null],[["Pre Delay","raw","pdly100",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["PreDly Dev","dev",null,20],["Depth Dev","dev2",null,40],["Pan Dev","dev",null,20],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Pre Delay","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],["Trem Rate","raw","rate",125],["Trem Sep","lvl",null,127],["Trem Phase","raw","phase",90],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Pre Delay","raw","pdly100",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["Phase","raw","phase",90],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Filter","filt",null,2],["Cutoff","freq",null,16],["Pre Delay","raw","pdly100",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["Phase","raw","phase",90],null,["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null],[["Filter","filt",null,2],["Cutoff","freq",null,16],["Pre Delay","raw","pdly100",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["Phase","raw","phase",90],["Feedback","raw","fbk",98],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null],[["Pre Delay","raw","pdly100",125],["Rate","raw","rate",125],["Depth","lvl",null,127],["Feedback","raw","fbk",98],["Step Rate","raw","step",125],["Phase","raw","phase",90],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null],[["Fbk Mode","fbmode",null,1],["Delay L","raw","dly500",126],["Delay R","raw","dly500",126],["Phase L","inv",null,1],["Phase R","inv",null,1],["Feedback","raw","fbk",98],["HF Damp","hf",null,17],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null],[["Fbk Mode","fbmode",null,1],["Delay L","raw","dly500",126],["Delay R","raw","dly500",126],["Feedback","raw","fbk",98],["HF Damp","hf",null,17],["Rate","raw","rate",125],["Depth","lvl",null,127],["Phase","raw","phase",90],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127]],[["Delay L","raw","dly1000",125],["Delay R","raw","dly1000",125],["Delay C","raw","dly1000",125],["Feedback","raw","fbk",98],["HF Damp","hf",null,17],["Level L","lvl",null,127],["Level R","lvl",null,127],["Level C","lvl",null,127],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127]],[["Delay 1","raw","dly1000",125],["Delay 2","raw","dly1000",125],["Delay 3","raw","dly1000",125],["Delay 4","raw","dly1000",125],["Level 1","lvl",null,127],["Level 2","lvl",null,127],["Level 3","lvl",null,127],["Level 4","lvl",null,127],["Feedback","raw","fbk",98],["HF Damp","hf",null,17],["Balance","bal",null,100],["Level","lvl",null,127]],[["Delay","raw","dly1000",125],["Feedback","raw","fbk",98],["Accel","accel",null,15],["HF Damp","hf",null,17],["Pan","pan",null,127],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null],[["Mode","mode",null,4],["Coarse A","coarse",null,36],["Coarse B","coarse",null,36],["Fine A","fine",null,100],["Fine B","fine",null,100],["PreDly A","raw","pdly500",126],["PreDly B","raw","pdly500",126],["Pan A","pan",null,127],["Pan B","pan",null,127],["Lvl Bal","lvlbal",null,100],["Balance","bal",null,100],["Level","lvl",null,127]],[["Mode","mode",null,4],["Coarse","coarse",null,36],["Fine","fine",null,100],["Pre Delay","raw","pdly500",126],["Feedback","raw","fbk",98],["Pan","pan",null,127],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null],[["Type","revtype",null,5],["Pre Delay","raw","pdly100",125],["Time","lvl",null,127],["HF Damp","hf",null,17],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Type","gatetype",null,3],["Pre Delay","raw","pdly100",125],["Gate Time","raw","gate",99],["Low Gain","db",null,30],["High Gain","db",null,30],["Balance","bal",null,100],["Level","lvl",null,127],null,null,null,null,null],[["OD Drive","lvl",null,127],["OD Pan","pan",null,127],["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],null,["Cho Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["OD Drive","lvl",null,127],["OD Pan","pan",null,127],["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["OD Drive","lvl",null,127],["OD Pan","pan",null,127],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null,null],[["Dist Drive","lvl",null,127],["Dist Pan","pan",null,127],["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],null,["Cho Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Dist Drive","lvl",null,127],["Dist Pan","pan",null,127],["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Dist Drive","lvl",null,127],["Dist Pan","pan",null,127],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null,null],[["Enh Sens","lvl",null,127],["Enh Mix","lvl",null,127],["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],null,["Cho Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Enh Sens","lvl",null,127],["Enh Mix","lvl",null,127],["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Enh Sens","lvl",null,127],["Enh Mix","lvl",null,127],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],null,["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null,null,null],[["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],null,["Cho Bal","bal",null,100],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null],[["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null],[["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],["Cho Bal","bal",null,100],["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Level","lvl",null,127],null,null],[["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],null,["Cho Bal","bal",null,100],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null],[["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Dly Time","raw","dly500",126],["Dly Fbk","raw","fbk",98],["Dly HF","hf",null,17],["Dly Bal","bal",null,100],["Level","lvl",null,127],null,null],[["Cho PreDly","raw","pdly100",125],["Cho Rate","raw","rate",125],["Cho Depth","lvl",null,127],["Cho Bal","bal",null,100],["Fl PreDly","raw","pdly100",125],["Fl Rate","raw","rate",125],["Fl Depth","lvl",null,127],["Fl Fbk","raw","fbk",98],["Fl Bal","bal",null,100],["Level","lvl",null,127],null,null]];
+const WAVES={A:"Ac Piano 1A|Ac Piano 1B|Ac Piano 1C|Ac Piano2 pA|Ac Piano2 pB|Ac Piano2 pC|Ac Piano2 fA|Ac Piano2 fB|Ac Piano2 fC|Piano Thump|Piano Up TH|MKS-20 P3 A|MKS-20 P3 B|MKS-20 P3 C|SA Rhodes 1A|SA Rhodes 1B|SA Rhodes 1C|SA Rhodes 2A|SA Rhodes 2B|SA Rhodes 2C|E.Piano 1A|E.Piano 1B|E.Piano 1C|E.Piano 2A|E.Piano 2B|E.Piano 2C|E.Piano 3A|E.Piano 3B|E.Piano 3C|MK-80 EP A|MK-80 EP B|MK-80 EP C|D-50 EP A|D-50 EP B|D-50 EP C|Celesta|Music Box|Clav 1A|Clav 1B|Clav 1C|Organ 1|Jazz Organ 1|Jazz Organ 2|Organ 2|Organ 3|Organ 4|Rock Organ|Dist. Organ|Rot.Org Slw|Rot.Org Fst|Pipe Organ|Nylon Gtr A|Nylon Gtr B|Nylon Gtr C|6-Str Gtr A|6-Str Gtr B|6-Str Gtr C|Gtr Harm A|Gtr Harm B|Gtr Harm C|Comp Gtr A|Comp Gtr B|Comp Gtr C|Comp Gtr A+|Mute Gtr 1|Mute Gtr 2A|Mute Gtr 2B|Mute Gtr 2C|Pop Strat A|Pop Strat B|Pop Strat C|Jazz Gtr A|Jazz Gtr B|Jazz Gtr C|JC Strat A|JC Strat B|JC Strat C|JC Strat A+|JC Strat B+|JC Strat C+|Clean Gtr A|Clean Gtr B|Clean Gtr C|Stratus A|Stratus B|Stratus C|OD Gtr A|OD Gtr B|OD Gtr C|OD Gtr A+|Heavy Gtr A|Heavy Gtr B|Heavy Gtr C|Heavy Gtr A+|Heavy Gtr B+|Heavy Gtr C+|PowerChord A|PowerChord B|PowerChord C|EG Harm|Gt.FretNoise|Syn Gtr A|Syn Gtr B|Syn Gtr C|Harp 1A|Harp 1B|Harp 1C|Banjo A|Banjo B|Banjo C|Sitar A|Sitar B|Sitar C|Dulcimer A|Dulcimer B|Dulcimer C|Shamisen A|Shamisen B|Shamisen C|Koto A|Koto B|Koto C|Pick Bass A|Pick Bass B|Pick Bass C|Fingerd Bs A|Fingerd Bs B|Fingerd Bs C|E.Bass|Fretless A|Fretless B|Fretless C|UprightBs 1|UprightBs 2A|UprightBs 2B|UprightBs 2C|Slap Bass 1|Slap & Pop|Slap Bass 2|Slap Bass 3|Jz.Bs Thumb|Jz.Bs Slap 1|Jz.Bs Slap 2|Jz.Bs Slap 3|Jz.Bs Pop|Syn Bass A|Syn Bass C|Mini Bs 1A|Mini Bs 1B|Mini Bs 1C|Mini Bs 2|Mini Bs 2+|MC-202 Bs A|MC-202 Bs B|MC-202 Bs C|Flute 1A|Flute 1B|Flute 1C|Blow Pipe|Bottle|Shakuhachi|Clarinet A|Clarinet B|Clarinet C|Oboe mf A|Oboe mf B|Oboe mf C|Sop.Sax mfA|Sop.Sax mfB|Sop.Sax mfC|Alto Sax 1A|Alto Sax 1B|Alto Sax 1C|Tenor Sax A|Tenor Sax B|Tenor Sax C|Bari.Sax fA|Bari.Sax fB|Bari Sax fC|Harmonica A|Harmonica B|Harmonica C|Chanter|Tpt Sect. A|Tpt Sect. B|Tpt Sect. C|Trumpet 1A|Trumpet 1B|Trumpet 1C|Trumpet 2A|Trumpet 2B|Trumpet 2C|HarmonMute1A|HarmonMute1B|HarmonMute1C|Trombone 1|French 1A|French 1C|F.Horns A|F.Horns B|F.Horns C|Violin A|Violin B|Violin C|Cello A|Cello B|Cello C|ST.Strings-R|ST.Strings-L|MonoStringsA|MonoStringsC|Pizz|JP Strings1A|JP Strings1B|JP Strings1C|JP Strings2A|JP Strings2B|JP Strings2C|Soft Pad A|Soft Pad B|Soft Pad C|Fantasynth A|Fantasynth B|Fantasynth C|D-50 HeavenA|D-50 HeavenB|D-50 HeavenC|Fine Wine|D-50 Brass A|D-50 Brass B|D-50 Brass C|D-50 BrassA+|DualSquare A|DualSquare C|DualSquareA+|Pop Voice|Syn Vox 1|Syn Vox 2|Voice Aahs A|Voice Aahs B|Voice Aahs C|Voice Oohs1A|Voice Oohs1B|Voice Oohs1C|Voice Oohs2A|Voice Oohs2B|Voice Oohs2C|Voice Breath|Male Ooh A|Male Ooh B|Male Ooh C|Org Vox A|Org Vox B|Org Vox C|Vox Noise".split("|"),B:"Kalimba|Marimba Wave|Log Drum|Vibes|Bottle Hit|Glockenspiel|Tubular|Steel Drums|Fanta Bell A|Fanta Bell B|Fanta Bell C|FantaBell A+|Org Bell|Agogo|DIGI Bell 1|DIGI Bell 1+|DIGI Chime|Wave Scan|Wire String|2.2 Bellwave|2.2 Vibwave|Spark VOX|MMM VOX|Lead Wave|Synth Reed|Synth Saw 1|Synth Saw 2|Syn Saw 2inv|Synth Saw 3|JP-8 Saw A|JP-8 Saw B|JP-8 Saw C|P5 Saw A|P5 Saw B|P5 Saw C|D-50 Saw A|D-50 Saw B|D-50 Saw C|Synth Square|JP-8 SquareA|JP-8 SquareB|JP-8 SquareC|Synth Pulse1|Synth Pulse2|Triangle|Sine|Org Click|White Noise|Pink Noise|Metal Wind|Wind Agogo|Feedbackwave|Spectrum|BreathNoise|Rattles|Ice Rain|Tin Wave|Anklungs|Wind Chimes|Orch. Hit|Tekno Hit|Back Hit|Philly Hit|Scratch 1|Scratch 2|Scratch 3|Natural SN1|Natural SN2|Piccolo SN|Ballad SN|SN Roll|808 SN|Brush Slap|Brush Swish|Brush Roll|Dry Stick|Side Stick|Lite Kick|Hybrid Kick1|Hybrid Kick2|Old Kick|Verb Kick|Round Kick|808 Kick|Verb Tom Hi|Verb Tom Lo|Dry Tom Hi|Dry Tom Lo|Cl HiHat 1|Cl HiHat 2|Op Hihat|Pedal HiHat|606 HiHat Cl|606 HiHat Op|808 Claps|Hand Claps|Finger Snaps|Ride 1|Ride 2|Ride Bell 1|Crash 1|China Cym|Cowbell 1|Wood Block|Claves|Bongo Hi|Bongo Lo|Cga Open Hi|Cga Open Lo|Cga Mute Hi|Cga Mute Lo|Cga Slap|Timbale|Cabasa Up|Cabasa Down|Cabasa Cut|Maracas|Long Guiro|Tambourine|Open Triangl|Cuica 1|Vibraslap|Timpani|Applause|REV Orch.Hit|REV TeknoHit|REV Back Hit|REV PhillHit|REV Steel DR|REV Tin Wave|REV NatrlSn1|REV NatrlSn2|REV PiccloSN|REV BalladSN|REV Side Stk|REV SN Roll|REV Brush 1|REV Brush 2|REV Brush 3|REV LiteKick|REV Hybridk1|REV Hybridk2|REV Old Kick|REV Timpani|REV VerbTomH|REV VerbTomL|REV DryTomH|REV DryTomM|REV ClHiHat1|REV ClHiHat2|REV Op HiHat|REV Pedal HH|REV 606HH Cl|REV 606HH Op|REV Ride|REV Cup|REV Crash 1|REV China|REV DrySick|REV RealCLP|REV FingSnap|REV Cowbell|REV WoodBlck|REV Claves|REV Conga|REV Tamb|REV Maracas|REV Guiro|REV Cuica|REV Metro|Loop 1|Loop 2|Loop 3|Loop 4|Loop 5|Loop 6|Loop 7|R8 Click|Metronome 1|Metronome 2|MC500 Beep 1|MC500 Beep 2|Low Saw|Low Saw inv|Low P5 Saw|Low Pulse 1|Low Pulse 2|Low Square|Low Sine|Low Triangle|Low White NZ|Low Pink NZ|DC".split("|")};
+
+
+/* ================= Hilfsfunktionen & Tabellen ================= */
+const $=s=>document.querySelector(s);
+const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
+const SVG=(t,a)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const note=v=>NN[v%12]+(Math.floor(v/12)-1);
+const sg=d=>(d>0?'+':'')+d;
+const off=c=>v=>sg(v-c);
+const pan=v=>v===64?'0':v<64?'L'+(64-v):(v-64)+'R';
+const sens=v=>sg(v*2-100)+'%';
+const OO=['OFF','ON'];
+const SENS15=['-100','-70','-50','-40','-30','-20','-10','0','+10','+20','+30','+40','+50','+70','+100'];
+const KF16=['-100','-70','-50','-30','-10','0','+10','+20','+30','+40','+50','+70','+100','+120','+150','+200'];
+const RNDP=['0','1','2','3','4','5','6','7','8','9','10','20','30','40','50','60','70','80','90','100','200','300','400','500','600','700','800','900','1000','1100','1200'];
+const CSRC=['OFF','SYS-CTRL1','SYS-CTRL2','MODULATION','BREATH','FOOT','VOLUME','PAN','EXPRESSION','PITCH BEND','AFTERTOUCH'];
+const PSRC=CSRC.concat(['LFO1','LFO2','VELOCITY','KEYFOLLOW','PLAYMATE']);
+const DEST=['OFF','PCH  Pitch','CUT  Cutoff','RES  Resonance','LEV  Level','PAN  Pan','MIX  Output Level','CHO  Chorus Send','REV  Reverb Send','PL1  Pitch LFO1','PL2  Pitch LFO2','FL1  TVF LFO1','FL2  TVF LFO2','AL1  TVA LFO1','AL2  TVA LFO2','pL1  Pan LFO1','pL2  Pan LFO2','L1R  LFO1 Rate','L2R  LFO2 Rate'];
+const CAT=["NO ASSIGN","AC.PIANO","EL.PIANO","KEYBOARDS","BELL","MALLET","ORGAN","ACCORDION","HARMONICA","AC.GUITAR","EL.GUITAR","DIST.GUITAR","BASS","SYNTH BASS","STRINGS","ORCHESTRA","HIT&STAB","WIND","FLUTE","AC.BRASS","SYNTH BRASS","SAX","HARD LEAD","SOFT LEAD","TECHNO SYNTH","PULSATING","SYNTH FX","OTHER SYNTH","BRIGHT PAD","SOFT PAD","VOX","PLUCKED","ETHNIC","FRETTED","PERCUSSION","SOUND FX","BEAT&GROOVE","DRUMS","COMBINATION"];
+const LFOW=['TRI','SIN','SAW','SQR','TRP','S&H','RND','CHS'];
+const FREQ=['200','250','315','400','500','630','800','1000','1250','1600','2000','2500','3150','4000','5000','6300','8000'];
+const EK={lowf:['200 Hz','400 Hz'],highf:['4000 Hz','8000 Hz'],freq:FREQ.map(f=>f+' Hz'),hf:FREQ.map(f=>f+' Hz').concat(['BYPASS']),q:['0.5','1.0','2.0','4.0','8.0'],amp:['SMALL','BUILT-IN','2-STACK','3-STACK'],speed:['SLOW','FAST'],wah:['LPF','BPF'],filt:['OFF','LPF','HPF'],inv:['NORMAL','INVERT'],fbmode:['NORMAL','CROSS'],post:['0 dB','+6 dB','+12 dB','+18 dB'],ratio:['1.5:1','2:1','4:1','100:1'],mode:['1','2','3','4','5'],revtype:['ROOM1','ROOM2','STAGE1','STAGE2','HALL1','HALL2'],gatetype:['NORMAL','REVERSE','SWEEP1','SWEEP2']};
+function efxFmt(d,v){const[,k,rk,max]=d;switch(k){
+  case'db':return sg(v-15)+' dB';case'pan':return pan(v);case'dev2':return sg(v-20);case'coarse':return sg(v-24)+' st';
+  case'fine':return sg(v*2-100)+' ct';case'bal':return'D'+(100-v)+':'+v+'W';case'lvlbal':return'A'+(100-v)+':'+v+'B';
+  case'raw':if(rk==='phase'&&max===90)return v*2+'°';if(rk==='gate'&&max===99)return(5+5*v)+' ms';if(rk==='fbk'&&max===98)return sg(v*2-98)+'%';return String(v);
+  default:return String(v)}}
+
+/* Parameterdefinition: P(Offset, Bezeichnung, Max, Optionen) */
+const P=(o,l,max,x={})=>Object.assign({o,l,min:0,max},x);
+const ENVL={T1:'T1 Attack',T2:'T2 Decay',T3:'T3 Decay 2',T4:'T4 Release',L1:'L1 Attack Lvl',L2:'L2 Break Lvl',L3:'L3 Sustain',L4:'L4 Release Lvl'};
+
+/* ---- Patch Common (Adresse 03 00 00 00, 0x4A Bytes) ---- */
+const C={
+ name:P(0,'Patch Name',0,{type:'name'}),
+ efxType:P(12,'EFX Type',39,{opts:null}),
+ efxOut:P(25,'EFX Output Assign',2,{opts:['MIX','DIR1','DIR2']}),efxMix:P(26,'EFX Mix Out Send',127,{d:127}),efxCho:P(27,'EFX Chorus Send',127),efxRev:P(28,'EFX Reverb Send',127),
+ efxS1:P(29,'EFX Ctrl Source 1',10,{opts:CSRC}),efxD1:P(30,'EFX Ctrl Depth 1',126,{f:off(63),d:63}),efxS2:P(31,'EFX Ctrl Source 2',10,{opts:CSRC}),efxD2:P(32,'EFX Ctrl Depth 2',126,{f:off(63),d:63}),efxHP:P(60,'EFX Ctrl Hold/Peak',2,{opts:['OFF','HOLD','PEAK']}),
+ choLvl:P(33,'Chorus Level',127,{d:64}),choRate:P(34,'Chorus Rate',127,{d:20}),choDep:P(35,'Chorus Depth',127,{d:60}),choPre:P(36,'Chorus Pre-Delay',127,{d:10}),choFb:P(37,'Chorus Feedback',127),choOut:P(38,'Chorus Output',2,{opts:['MIX','REV','MIX+REV']}),
+ revType:P(39,'Reverb Type',7,{opts:['ROOM1','ROOM2','STAGE1','STAGE2','HALL1','HALL2','DELAY','PAN-DLY'],d:4}),revLvl:P(40,'Reverb Level',127,{d:64}),revTime:P(41,'Reverb Time',127,{d:80}),revHF:P(42,'Reverb HF Damp',17,{opts:FREQ.concat(['BYPASS']),d:17}),dlyFb:P(43,'Delay Feedback',127),
+ tempo:P(44,'Patch Tempo',250,{min:20,nib:1,d:120}),level:P(46,'Patch Level',127,{d:127}),pan:P(47,'Patch Pan',127,{f:pan,d:64}),analog:P(48,'Analog Feel',127),
+ bendU:P(49,'Bend Range Up',12,{d:2}),bendD:P(50,'Bend Range Down',48,{f:v=>v?'-'+v:'0',d:2}),keyAs:P(51,'Key Assign',1,{opts:['POLY','SOLO']}),legato:P(52,'Solo Legato',1,{opts:OO}),
+ portaSw:P(53,'Portamento Switch',1,{opts:OO}),portaMode:P(54,'Portamento Mode',1,{opts:['NORMAL','LEGATO']}),portaType:P(55,'Portamento Type',1,{opts:['RATE','TIME']}),portaStart:P(56,'Portamento Start',1,{opts:['PITCH','NOTE']}),portaTime:P(57,'Portamento Time',127),
+ src2:P(58,'Control 2 Source',15,{opts:PSRC}),src3:P(59,'Control 3 Source',15,{opts:PSRC}),hp1:P(61,'Control 1 Hold/Peak',2,{opts:['OFF','HOLD','PEAK']}),hp2:P(62,'Control 2 Hold/Peak',2,{opts:['OFF','HOLD','PEAK']}),hp3:P(63,'Control 3 Hold/Peak',2,{opts:['OFF','HOLD','PEAK']}),
+ velSw:P(64,'Velocity Range Sw',1,{opts:OO}),oct:P(65,'Octave Shift',6,{f:off(3),d:3}),stretch:P(66,'Stretch Tune',3,{opts:['OFF','1','2','3']}),prio:P(67,'Voice Priority',1,{opts:['LAST','LOUDEST']}),
+ st12:P(68,'Structure 1&2',9,{f:v=>'TYPE '+(v+1)}),bo12:P(69,'Booster 1&2',3,{opts:['0','+6','+12','+18']}),st34:P(70,'Structure 3&4',9,{f:v=>'TYPE '+(v+1)}),bo34:P(71,'Booster 3&4',3,{opts:['0','+6','+12','+18']}),
+ clock:P(72,'Clock Source',1,{opts:['PATCH','SYSTEM']}),cat:P(73,'Category',38,{opts:CAT})
+};
+C.efxType.opts=EFXT;
+/* ---- Patch Tone (Adresse 03 00 10/12/14/16 00, 0x81 Bytes) ---- */
+const T={
+ sw:P(0,'Tone Switch',1,{opts:OO}),wgType:P(1,'Wave Group Type',2),wgId:P(2,'Wave Group ID',127,{d:1}),wave:P(3,'Wave',254,{nib:1}),gain:P(5,'Wave Gain',3,{opts:['-6 dB','0 dB','+6 dB','+12 dB'],d:1}),
+ fxmSw:P(6,'FXM Switch',1,{opts:OO}),fxmCol:P(7,'FXM Color',3,{f:v=>v+1}),fxmDep:P(8,'FXM Depth',15,{f:v=>v+1}),
+ dlyMode:P(9,'Tone Delay Mode',7,{opts:['NORMAL','HOLD','PLAYMATE','CLOCK-SYNC','TAP-SYNC','KEY-OFF-N','KEY-OFF-D','TEMPO-SYNC']}),dlyTime:P(10,'Tone Delay Time',127),
+ velXf:P(11,'Velocity Cross Fade',127),velLo:P(12,'Velocity Range Lower',127,{min:1,d:1}),velHi:P(13,'Velocity Range Upper',127,{min:1,d:127}),keyLo:P(14,'Key Range Lower',127,{f:note}),keyHi:P(15,'Key Range Upper',127,{f:note,d:127}),
+ redamp:P(16,'Redamper Ctrl',1,{opts:OO}),volSw:P(17,'Volume Ctrl',1,{opts:OO,d:1}),holdSw:P(18,'Hold-1 Ctrl',1,{opts:OO,d:1}),bendSw:P(19,'Pitch Bend Ctrl',1,{opts:OO,d:1}),panSw:P(20,'Pan Ctrl',2,{opts:['OFF','CONTINUOUS','KEY-ON'],d:1}),
+ coarse:P(61,'Coarse Tune',96,{f:off(48),d:48}),fine:P(62,'Fine Tune',100,{f:off(50),d:50}),rnd:P(63,'Random Pitch Depth',30,{opts:RNDP}),pkf:P(64,'Pitch Keyfollow',15,{opts:KF16,d:12}),
+ penvD:P(65,'P-Env Depth',24,{f:off(12),d:12}),penvVS:P(66,'P-Env Velo Sens',125,{f:sens,d:50}),penvVT1:P(67,'P-Env Velo Time 1',14,{opts:SENS15,d:7}),penvVT4:P(68,'P-Env Velo Time 4',14,{opts:SENS15,d:7}),penvTKF:P(69,'P-Env Time Keyfollow',14,{opts:SENS15,d:7}),
+ pl1:P(78,'Pitch LFO1 Depth',126,{f:off(63),d:63}),pl2:P(79,'Pitch LFO2 Depth',126,{f:off(63),d:63}),
+ fType:P(80,'Filter Type',4,{opts:['OFF','LPF','BPF','HPF','PKG'],d:1}),cut:P(81,'Cutoff Frequency',127,{d:127}),ckf:P(82,'Cutoff Keyfollow',15,{opts:KF16,d:5}),res:P(83,'Resonance',127),resVS:P(84,'Resonance Velo Sens',125,{f:sens,d:50}),
+ fenvD:P(85,'TVF Env Depth',126,{f:off(63),d:63}),fenvVC:P(86,'TVF Env Velo Curve',6,{f:v=>v+1}),fenvVS:P(87,'TVF Env Velo Sens',125,{f:sens,d:50}),fenvVT1:P(88,'TVF Env Velo Time 1',14,{opts:SENS15,d:7}),fenvVT4:P(89,'TVF Env Velo Time 4',14,{opts:SENS15,d:7}),fenvTKF:P(90,'TVF Env Time Keyfollow',14,{opts:SENS15,d:7}),
+ fl1:P(99,'TVF LFO1 Depth',126,{f:off(63),d:63}),fl2:P(100,'TVF LFO2 Depth',126,{f:off(63),d:63}),
+ lvl:P(101,'Tone Level',127,{d:127}),biasDir:P(102,'Bias Direction',3,{opts:['LOWER','UPPER','LOW&UP','ALL']}),biasPos:P(103,'Bias Position',127,{f:note,d:64}),biasLvl:P(104,'Bias Level',14,{opts:SENS15,d:7}),
+ aenvVC:P(105,'TVA Env Velo Curve',6,{f:v=>v+1}),aenvVS:P(106,'TVA Env Velo Sens',125,{f:sens,d:50}),aenvVT1:P(107,'TVA Env Velo Time 1',14,{opts:SENS15,d:7}),aenvVT4:P(108,'TVA Env Velo Time 4',14,{opts:SENS15,d:7}),aenvTKF:P(109,'TVA Env Time Keyfollow',14,{opts:SENS15,d:7}),
+ al1:P(117,'TVA LFO1 Depth',126,{f:off(63),d:63}),al2:P(118,'TVA LFO2 Depth',126,{f:off(63),d:63}),
+ tPan:P(119,'Tone Pan',127,{f:pan,d:64}),pankf:P(120,'Pan Keyfollow',14,{opts:SENS15,d:7}),rndPan:P(121,'Random Pan Depth',63),altPan:P(122,'Alternate Pan Depth',127,{min:1,f:pan,d:64}),
+ pnl1:P(123,'Pan LFO1 Depth',126,{f:off(63),d:63}),pnl2:P(124,'Pan LFO2 Depth',126,{f:off(63),d:63}),
+ outA:P(125,'Output Assign',3,{opts:['MIX','EFX','DIR1','DIR2']}),mixS:P(126,'Mix/EFX Send Level',127,{d:127}),choS:P(127,'Chorus Send Level',127),revS:P(128,'Reverb Send Level',127)
+};
+// Hüllkurven & LFOs
+const ENV={
+ pitch:{name:'P-ENV',bip:true,t:[70,71,72,73],l:[74,75,76,77]},
+ tvf:{name:'TVF ENV',t:[91,92,93,94],l:[95,96,97,98]},
+ tva:{name:'TVA ENV',t:[110,111,112,113],l:[114,115,116],end0:true}
+};
+const envParams=k=>{const e=ENV[k],out=[];['T1','T2','T3','T4'].forEach((n,i)=>out.push(P(e.t[i],e.name+' '+ENVL[n],127,{d:k==='tva'&&i?20:0,short:ENVL[n]})));
+  e.l.forEach((o,i)=>out.push(e.bip?P(o,e.name+' '+ENVL['L'+(i+1)],126,{f:off(63),d:63,short:ENVL['L'+(i+1)]}):P(o,e.name+' '+ENVL['L'+(i+1)],127,{d:i===3?0:127,short:ENVL['L'+(i+1)]})));return out};
+const lfoP=(b,n)=>[P(b,`LFO${n} Waveform`,7,{opts:LFOW}),P(b+1,`LFO${n} Key Trigger`,1,{opts:OO}),P(b+2,`LFO${n} Rate`,127,{d:64}),P(b+3,`LFO${n} Offset`,4,{opts:['-100','-50','0','+50','+100'],d:2}),P(b+4,`LFO${n} Delay Time`,127),P(b+5,`LFO${n} Fade Mode`,3,{opts:['ON-IN','ON-OUT','OFF-IN','OFF-OUT']}),P(b+6,`LFO${n} Fade Time`,127),P(b+7,`LFO${n} External Sync`,2,{opts:['OFF','CLOCK','TAP']})];
+const MATRIX=[0,1,2].map(c=>[0,1,2,3].map(i=>({dest:P(21+c*8+i*2,`Ctrl ${c+1} Dest ${i+1}`,18,{opts:DEST}),depth:P(22+c*8+i*2,`Ctrl ${c+1} Depth ${i+1}`,126,{f:off(63),d:63,short:'Depth'})})));
+
+/* ---- Seiten (wie die Edit-Seiten am JV) ---- */
+const PAGES={
+ GENERAL:{s:'C',sub:'Patch-Grundeinstellungen',boxes:[['Patch',[C.name,C.cat,C.level,C.pan,C.analog,C.oct,C.stretch,C.prio]],['Structure',[C.st12,C.bo12,C.st34,C.bo34]],['Tempo',[C.tempo,C.clock]]]},
+ CONTROL:{s:'C',sub:'Spielhilfen, Portamento, Controller',boxes:[['Key / Bend',[C.keyAs,C.legato,C.prio,C.bendU,C.bendD,C.velSw]],['Portamento',[C.portaSw,C.portaMode,C.portaType,C.portaStart,C.portaTime]],['Patch Control',[C.src2,C.src3,C.hp1,C.hp2,C.hp3]]]},
+ EFX:{s:'C',sub:'Multi-Effekt',boxes:[['EFX',[C.efxType,C.efxOut,C.efxMix,C.efxCho,C.efxRev]],['EFX Parameter','efx'],['EFX Control',[C.efxS1,C.efxD1,C.efxS2,C.efxD2,C.efxHP]]]},
+ 'CHO/REV':{s:'C',sub:'Chorus und Reverb',boxes:[['Chorus',[C.choLvl,C.choRate,C.choDep,C.choPre,C.choFb,C.choOut]],['Reverb',[C.revType,C.revLvl,C.revTime,C.revHF,C.dlyFb]]]},
+ WAVE:{s:'T',sub:'Wellenform, FXM, Tone Delay',boxes:[['Wave','wave'],['FXM',[T.fxmSw,T.fxmCol,T.fxmDep]],['Tone Delay',[T.dlyMode,T.dlyTime]]]},
+ RANGE:{s:'T',sub:'Tastatur- und Velocity-Bereich',boxes:[['Keyboard Range',[T.keyLo,T.keyHi]],['Velocity Range',[T.velLo,T.velHi,T.velXf]]]},
+ CTRL:{s:'T',sub:'Controller-Matrix und Schalter',boxes:[['Control Switch',[T.redamp,T.volSw,T.holdSw,T.bendSw,T.panSw]],['Control Matrix','matrix']]},
+ LFO:{s:'T',sub:'LFO 1 und 2',boxes:[['LFO 1',lfoP(45,1),'lfo1'],['LFO 2',lfoP(53,2),'lfo2']]},
+ PITCH:{s:'T',sub:'Tonhöhe und Pitch-Hüllkurve',boxes:[['Pitch',[T.coarse,T.fine,T.rnd,T.pkf,T.pl1,T.pl2]],['Pitch Envelope',[T.penvD,T.penvVS,T.penvVT1,T.penvVT4,T.penvTKF],'pitch']]},
+ TVF:{s:'T',sub:'Filter und Filter-Hüllkurve',boxes:[['TVF',[T.fType,T.cut,T.ckf,T.res,T.resVS,T.fl1,T.fl2]],['TVF Envelope',[T.fenvD,T.fenvVC,T.fenvVS,T.fenvVT1,T.fenvVT4,T.fenvTKF],'tvf']]},
+ TVA:{s:'T',sub:'Lautstärke und Amp-Hüllkurve',boxes:[['TVA',[T.lvl,T.biasDir,T.biasPos,T.biasLvl,T.al1,T.al2]],['TVA Envelope',[T.aenvVC,T.aenvVS,T.aenvVT1,T.aenvVT4,T.aenvTKF],'tva']]},
+ OUTPUT:{s:'T',sub:'Panorama und Ausgänge',boxes:[['Pan',[T.tPan,T.pankf,T.rndPan,T.altPan,T.pnl1,T.pnl2]],['Output',[T.outA,T.mixS,T.choS,T.revS]]]}
+};
+
+/* ================= Zustand ================= */
+const CS=0x4A,TS=0x81;
+const S={common:new Uint8Array(CS),tones:[0,1,2,3].map(()=>new Uint8Array(TS))};
+const getV=(a,p)=>p.nib?(a[p.o]&15)*16+(a[p.o+1]&15):a[p.o];
+const setV=(a,p,v)=>{if(p.nib){a[p.o]=(v>>4)&15;a[p.o+1]=v&15}else a[p.o]=v};
+const allP=o=>Object.values(o);
+function initState(){
+  S.common.fill(0);S.tones.forEach(t=>t.fill(0));
+  'INIT PATCH  '.split('').forEach((c,i)=>S.common[i]=c.charCodeAt(0));
+  allP(C).forEach(p=>{if(p.type!=='name')setV(S.common,p,p.d??p.min)});
+  EFXW[0].forEach((d,s)=>{if(d)S.common[13+s]=d[1]==='db'?15:d[1]==='pan'?64:d[1]==='bal'?50:d[0]==='Level'?127:0});
+  S.tones.forEach((t,i)=>{
+    const ps=[...allP(T),...lfoP(45,1),...lfoP(53,2),...envParams('pitch'),...envParams('tvf'),...envParams('tva')];
+    MATRIX.flat().forEach(m=>ps.push(m.dest,m.depth));
+    ps.forEach(p=>setV(t,p,p.d??p.min));t[0]=i===0?1:0;t[1]=0;t[2]=1;setV(t,T.wave,0);
+  });
+}
+initState();
+
+let page='GENERAL',sel=[0],focus=null; // focus={p,scope}
+const prim=()=>sel[0];
+const arrOf=scope=>scope==='C'?S.common:S.tones[prim()];
+const fmt=(p,v)=>p.opts?(p.opts[v]??String(v)):p.f?p.f(v):String(v);
+
+/* ================= SysEx ================= */
+const MODEL=0x6A;
+const dev=()=>Math.min(32,Math.max(17,+$('#devId').value||17))-1;
+const ch=()=>Math.min(16,Math.max(1,+$('#chan').value||1))-1;
+const toLin=a=>(a[0]<<21)|(a[1]<<14)|(a[2]<<7)|a[3];
+const fromLin=n=>[(n>>21)&127,(n>>14)&127,(n>>7)&127,n&127];
+const addA=(a,o)=>fromLin(toLin(a)+o);
+const cs=b=>(128-(b.reduce((s,x)=>s+x,0)%128))%128;
+const baseC=[3,0,0,0],baseT=i=>[3,0,0x10+2*i,0];
+const dt1=(addr,data)=>{const b=[...addr,...data];return[0xF0,0x41,dev(),MODEL,0x12,...b,cs(b),0xF7]};
+const rq1=(addr,size)=>{const b=[...addr,...fromLin(size)];return[0xF0,0x41,dev(),MODEL,0x11,...b,cs(b),0xF7]};
+
+let access=null,out=null,inp=null;
+function tx(m){if(out)try{out.send(m)}catch(e){status('Sendefehler: '+e.message)}}
+const queue=new Map();let qRaf=0;
+function queueSend(base,o,len,arr){queue.set(base.join()+':'+o,[addA(base,o),Array.from(arr.slice(o,o+len))]);if(!qRaf)qRaf=requestAnimationFrame(()=>{qRaf=0;queue.forEach(([a,d])=>tx(dt1(a,d)));queue.clear()})}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function status(t){$('#status').textContent=t}
+
+/* zentraler Setter: schreibt Wert, sendet, aktualisiert Anzeigen */
+function setParam(p,scope,v,opt={}){
+  v=Math.max(p.min,Math.min(p.max,Math.round(v)));
+  const len=p.nib?2:1;
+  if(scope==='C'){setV(S.common,p,v);queueSend(baseC,p.o,len,S.common)}
+  else sel.forEach(t=>{setV(S.tones[t],p,v);queueSend(baseT(t),p.o,len,S.tones[t])});
+  refresh(p,scope);
+  if(!opt.nofocus)setFocus(p,scope);
+}
+const reg=new Map(); // "scope:offset" -> [update fns]
+function onReg(scope,p,fn){const k=scope+':'+p.o;if(!reg.has(k))reg.set(k,[]);reg.get(k).push(fn)}
+function refresh(p,scope){(reg.get(scope+':'+p.o)||[]).forEach(f=>f());if(focus&&focus.p.o===p.o&&focus.scope===scope)lcd();if(scope==='C'&&p.o<12)lcd()}
+
+/* ================= MIDI ================= */
+function store(k,v){try{localStorage.setItem('jv1010.'+k,v)}catch(e){}}
+function recall(k){try{return localStorage.getItem('jv1010.'+k)}catch(e){return null}}
+async function connect(){
+  if(!navigator.requestMIDIAccess){status('Web MIDI nicht verfügbar – bitte Chrome oder Edge verwenden.');return}
+  try{access=await navigator.requestMIDIAccess({sysex:true})}catch(e){status('MIDI-Zugriff verweigert: '+e.message);return}
+  access.onstatechange=fillPorts;fillPorts();
+}
+function fillPorts(){
+  const fill=(s,ports,key)=>{const cur=s.value||recall(key);s.innerHTML='';ports.forEach(p=>{const o=el('option',null,p.name);o.value=p.id;s.append(o)});
+    const m=[...s.options].find(o=>o.value===cur)||[...s.options].find(o=>/jv|roland|um-|uno|usb/i.test(o.text)&&!/launchkey/i.test(o.text));if(m)s.value=m.value};
+  fill($('#outSel'),[...access.outputs.values()],'out');fill($('#inSel'),[...access.inputs.values()],'in');
+  const ks=$('#kbSel'),kc=ks.value||recall('kb');ks.innerHTML='<option value="">— keins —</option>';
+  [...access.inputs.values()].forEach(p=>{const o=el('option',null,p.name);o.value=p.id;ks.append(o)});
+  const km=[...ks.options].find(o=>o.value&&o.value===kc)||[...ks.options].find(o=>/launchkey/i.test(o.text)&&!/daw|incontrol/i.test(o.text))||[...ks.options].find(o=>/launchkey/i.test(o.text));
+  if(km)ks.value=km.value;pickPorts();
+}
+function pickPorts(){
+  out=access.outputs.get($('#outSel').value)||null;
+  if(inp)inp.onmidimessage=null;inp=access.inputs.get($('#inSel').value)||null;if(inp)inp.onmidimessage=e=>{if(e.data[0]===0xF0)absorb(Array.from(e.data))};
+  if(kbIn)kbIn.onmidimessage=null;kbIn=access.inputs.get($('#kbSel').value)||null;
+  if(kbIn&&kbIn===inp){inp.onmidimessage=e=>{if(e.data[0]===0xF0)absorb(Array.from(e.data));else onKb(e)}}else if(kbIn)kbIn.onmidimessage=onKb;
+  store('out',$('#outSel').value);store('in',$('#inSel').value);store('kb',$('#kbSel').value);$('#kled').className='mled'+(kbIn?' ok':'');
+  $('#mled').className='mled'+(out?' ok':'');status(out?'Verbunden: '+out.name:'Kein MIDI-Ausgang');
+}
+let rxT=0,rrT=0;
+
+/* ================= Keyboard (Launchkey) & Learn ================= */
+let kbIn=null,learn=false,ccMap={};
+try{ccMap=JSON.parse(localStorage.getItem('jv1010.ccmap')||'{}')}catch(e){ccMap={}}
+function saveMap(){try{localStorage.setItem('jv1010.ccmap',JSON.stringify(ccMap))}catch(e){}showMaps()}
+function findParam(scope,o){
+  if(scope==='C'){
+    if(o>=13&&o<=24){const type=S.common[12],d=(EFXW[type]||[])[o-13];if(!d)return null;
+      const p=P(o,`${EFXT[type]} ${d[0]}`,d[3]);if(EK[d[1]])p.opts=EK[d[1]].slice(0,d[3]+1);else p.f=v=>efxFmt(d,v);return p}
+    return allP(C).find(p=>p.o===o&&p.type!=='name')||null}
+  const list=[...allP(T),...lfoP(45,1),...lfoP(53,2),...envParams('pitch'),...envParams('tvf'),...envParams('tva'),...MATRIX.flat().flatMap(m=>[m.dest,m.depth])];
+  return list.find(p=>p.o===o)||null;
+}
+function showMaps(){
+  const m=$('#maps'),ks=Object.keys(ccMap);m.innerHTML='';if(!ks.length)return;
+  m.append('Zuweisungen: ');ks.sort((a,b)=>a-b).forEach((cc,i)=>{const e=ccMap[cc],p=findParam(e.scope,e.o);
+    if(i)m.append(' · ');const b=el('b',null,'CC'+cc);m.append(b,' → '+(p?p.l:'?')+(e.scope==='T'?' (Tone)':''))});
+}
+let kT=0;
+function kbAct(d){const st=d[0]&0xF0,c=(d[0]&15)+1;
+  $('#kled').className='mled rx';clearTimeout(kT);kT=setTimeout(()=>$('#kled').className='mled'+(kbIn?' ok':''),120);
+  const s=st===0x90&&d[2]>0?`Note ${note(d[1])} Vel ${d[2]}`:st===0x80||st===0x90?`Note aus ${note(d[1])}`:st===0xB0?`CC${d[1]} = ${d[2]}`:st===0xE0?`Pitch-Bend ${((d[2]<<7)|d[1])-8192}`:st===0xD0?`Aftertouch ${d[1]}`:st===0xC0?`Program ${d[1]+1}`:'';
+  if(s&&!learn)status(`Keyboard Kanal ${c}: ${s}`)}
+function onKb(e){
+  const d=e.data,st=d[0]&0xF0;if(d[0]>=0xF0)return;
+  kbAct(d);
+  if(st===0xB0){const cc=d[1];
+    if(learn){if(!focus){status('Erst einen Parameter antippen, dann Regler drehen');return}
+      if(focus.p.type==='name'||focus.p.o===0&&focus.scope==='C')return;
+      ccMap[cc]={scope:focus.scope,o:focus.p.o};learn=false;$('#learn').classList.remove('armed');saveMap();status(`CC${cc} → ${focus.p.l}`);return}
+    const m=ccMap[cc];if(m){const p=findParam(m.scope,m.o);if(p)setParam(p,m.scope,p.min+Math.round(d[2]/127*(p.max-p.min)));return}
+  }
+  if(st===0x90||st===0x80){mk(d[1],st===0x90&&d[2]>0)}
+  tx([st|ch(),...Array.from(d).slice(1)]);
+}
+function absorb(d){
+  if(d[1]!==0x41||d[3]!==MODEL||d[4]!==0x12)return false;
+  const base=toLin(d.slice(5,9)),data=d.slice(9,d.length-2);
+  data.forEach((v,j)=>{const x=fromLin(base+j);if(x[0]!==3||x[1]!==0)return;
+    if(x[2]===0&&x[3]<CS)S.common[x[3]]=v;
+    else if(x[2]>=0x10&&x[2]<0x18){const t=(x[2]-0x10)>>1,o=((x[2]-0x10)&1)*128+x[3];if(o<TS)S.tones[t][o]=v}});
+  $('#mled').className='mled rx';clearTimeout(rxT);rxT=setTimeout(()=>$('#mled').className='mled'+(out?' ok':''),150);
+  clearTimeout(rrT);rrT=setTimeout(()=>{render();status('Patch empfangen')},120);return true;
+}
+async function loadFromJV(){
+  if(!out)return status('Zuerst MIDI verbinden');if(!inp)return status('Kein MIDI-Eingang gewählt');
+  status('Lade Patch…');tx(rq1(baseC,CS));await sleep(80);for(let i=0;i<4;i++){tx(rq1(baseT(i),TS));await sleep(80)}
+}
+const allMsgs=()=>[dt1(baseC,Array.from(S.common)),...S.tones.map((t,i)=>dt1(baseT(i),Array.from(t)))];
+async function sendAll(){if(!out)return status('Zuerst MIDI verbinden');for(const m of allMsgs()){tx(m);await sleep(60)}status('Patch gesendet')}
+
+/* ================= Panel ================= */
+const pname=()=>String.fromCharCode(...S.common.slice(0,12).map(c=>c<32||c>126?32:c));
+function lcd(){
+  const pg=PAGES[page],sc=pg.s==='C'?'COM':'T'+sel.map(t=>t+1).join('');
+  $('#lcd1').textContent=(`${sc.padEnd(5)}${page}`.padEnd(14)+' '+pname()).slice(0,28);
+  if(focus){const v=getV(arrOf(focus.scope),focus.p);$('#lcd2').textContent=(focus.p.l.toUpperCase().slice(0,20).padEnd(21)+fmt(focus.p,v).padStart(7)).slice(0,28)}
+  else $('#lcd2').textContent='Parameter anklicken...';
+}
+function setFocus(p,scope){focus={p,scope};document.querySelectorAll('.focus').forEach(e=>e.classList.remove('focus'));
+  (reg.get('el:'+scope+':'+p.o)||[]).forEach(e=>e.classList.add('focus'));lcd()}
+function hbtn(label,sub,onclick){const b=el('div','hb');b.append(el('span','led'),el('span','cap',label));if(sub)b.append(el('span','l',sub));b.onclick=onclick;return b}
+function buildPanel(){
+  const pc=$('#pgC'),pt=$('#pgT');pc.innerHTML='';pt.innerHTML='';
+  Object.keys(PAGES).forEach(k=>{const b=hbtn(k,null,()=>{page=k;focus=null;render()});b.classList.toggle('on',page===k);(PAGES[k].s==='C'?pc:pt).append(b)});
+  const sw=$('#tsw'),se=$('#tsel');sw.innerHTML='';se.innerHTML='';
+  for(let i=0;i<4;i++){
+    const a=hbtn(String(i+1),'SW',()=>{S.tones[i][0]=S.tones[i][0]?0:1;queueSend(baseT(i),0,1,S.tones[i]);buildPanel()});a.classList.toggle('on',!!S.tones[i][0]);sw.append(a);
+    const b=hbtn(String(i+1),'SEL',e=>{if(e.shiftKey||e.ctrlKey||e.metaKey){sel=sel.includes(i)?(sel.length>1?sel.filter(x=>x!==i):sel):[...sel,i]}else sel=[i];
+      if(PAGES[page].s==='C')page='WAVE';render()});b.classList.toggle('on',sel.includes(i));se.append(b);
+  }
+  lcd();
+}
+/* VALUE-Rad */
+function nudge(d){if(!focus)return;const v=getV(arrOf(focus.scope),focus.p);setParam(focus.p,focus.scope,v+d)}
+(()=>{const dl=$('#dial');let y0=0,acc=0,rot=0;
+  dl.onpointerdown=e=>{dl.setPointerCapture(e.pointerId);y0=e.clientY;acc=0};
+  dl.onpointermove=e=>{if(!dl.hasPointerCapture(e.pointerId))return;acc+=(y0-e.clientY);y0=e.clientY;const st=e.shiftKey?12:4;while(Math.abs(acc)>=st){const s=Math.sign(acc);nudge(s);acc-=s*st;rot+=s*8;dl.style.transform=`rotate(${rot}deg)`}};
+  dl.onwheel=e=>{e.preventDefault();const s=e.deltaY<0?1:-1;nudge(s);rot+=s*8;dl.style.transform=`rotate(${rot}deg)`};
+  $('#inc').onclick=()=>nudge(1);$('#dec').onclick=()=>nudge(-1);
+})();
+
+/* ================= Bedienelemente ================= */
+const A0=-135,A1=135;
+function arc(cx,cy,r,a0,a1){const p=a=>[cx+r*Math.sin(a*Math.PI/180),cy-r*Math.cos(a*Math.PI/180)];const[x0,y0]=p(a0),[x1,y1]=p(a1);return`M${x0} ${y0}A${r} ${r} 0 ${a1-a0>180?1:0} 1 ${x1} ${y1}`}
+function knob(p,scope,label){
+  const w=el('div','kn');const svg=SVG('svg',{viewBox:'0 0 44 44'});
+  const bip=p.d!=null&&p.d>p.min&&p.d<p.max&&(p.f&&String(p.f(p.d)).match(/^[0C]$|^\+?0$/));
+  svg.append(SVG('path',{d:arc(22,22,18,A0,A1),stroke:'#141517','stroke-width':4,fill:'none','stroke-linecap':'round'}));
+  const va=SVG('path',{stroke:'var(--arc)','stroke-width':3,fill:'none','stroke-linecap':'round'});svg.append(va);
+  svg.append(SVG('circle',{cx:22,cy:22,r:13,fill:'#3a3d41',stroke:'#111','stroke-width':1}));
+  const ptr=SVG('line',{x1:22,y1:22,x2:22,y2:11,stroke:'var(--accent)','stroke-width':2,'stroke-linecap':'round'});svg.append(ptr);
+  const vl=el('span','kv');w.append(svg,el('span','kl',label||p.short||p.l),vl);w.title=p.l;
+  const upd=()=>{const v=getV(arrOf(scope),p),t=(v-p.min)/((p.max-p.min)||1),a=A0+t*(A1-A0);
+    const am=bip?A0+((p.d-p.min)/(p.max-p.min))*(A1-A0):A0;va.setAttribute('d',Math.abs(a-am)<.5?'':arc(22,22,18,Math.min(a,am),Math.max(a,am)));
+    ptr.setAttribute('transform',`rotate(${a} 22 22)`);vl.textContent=fmt(p,v)};
+  upd();onReg(scope,p,upd);regEl(scope,p,w);
+  let y0=0,acc=0;
+  w.onpointerdown=e=>{w.setPointerCapture(e.pointerId);y0=e.clientY;acc=0;setFocus(p,scope)};
+  w.onpointermove=e=>{if(!w.hasPointerCapture(e.pointerId))return;const range=p.max-p.min,pxPer=e.shiftKey?8:Math.max(1,160/range);acc+=y0-e.clientY;y0=e.clientY;
+    const st=Math.trunc(acc/pxPer);if(st){acc-=st*pxPer;setParam(p,scope,getV(arrOf(scope),p)+st)}};
+  w.onwheel=e=>{e.preventDefault();setParam(p,scope,getV(arrOf(scope),p)+(e.deltaY<0?1:-1))};
+  w.ondblclick=()=>setParam(p,scope,p.d??p.min);
+  return w;
+}
+function regEl(scope,p,e){const k='el:'+scope+':'+p.o;if(!reg.has(k))reg.set(k,[]);reg.get(k).push(e)}
+function select(p,scope,opts,label){
+  const w=el('div','sel');const l=el('label',null,label||p.l);const s=el('select');
+  (opts||p.opts).forEach((t,k)=>{const o=el('option',null,t);o.value=k+p.min*0;s.append(o)});
+  const upd=()=>{s.value=getV(arrOf(scope),p)};upd();onReg(scope,p,upd);regEl(scope,p,w);
+  s.onchange=()=>setParam(p,scope,+s.value);s.onfocus=()=>setFocus(p,scope);
+  w.append(l,s);return w;
+}
+function nameField(){
+  const w=el('div','sel wide');w.append(el('label',null,'Patch Name'));const i=el('input');i.maxLength=12;i.value=pname().trimEnd();
+  i.oninput=()=>{const s=i.value.replace(/[^\x20-\x7D]/g,'?').padEnd(12,' ').slice(0,12);for(let k=0;k<12;k++)S.common[k]=s.charCodeAt(k);queueSend(baseC,0,12,S.common);lcd()};
+  w.append(i);return w;
+}
+const ctl=(p,scope)=>p.type==='name'?nameField():p.opts?select(p,scope):knob(p,scope);
+
+/* ---- Wave-Auswahl mit Namen ---- */
+const WG=[['INT-A',0,1],['INT-B',0,2],['EXP Session',2,9]];
+function waveBox(box){
+  const t=S.tones[prim()],gi=WG.findIndex(g=>g[1]===t[1]&&g[2]===t[2]);
+  const gw=el('div','sel');gw.append(el('label',null,'Wave Group'));const gs=el('select');
+  WG.forEach((g,k)=>{const o=el('option',null,g[0]);o.value=k;gs.append(o)});
+  if(gi<0){const o=el('option',null,`Andere (${t[1]}/${t[2]})`);o.value=-1;gs.append(o)}gs.value=gi;
+  gs.onchange=()=>{const g=WG[+gs.value];if(!g)return;sel.forEach(i=>{S.tones[i][1]=g[1];S.tones[i][2]=g[2];queueSend(baseT(i),1,2,S.tones[i])});render()};
+  gw.append(gs);
+  const list=gi===0?WAVES.A:gi===1?WAVES.B:null,max=list?list.length-1:254;
+  const ww=el('div','sel wide');ww.append(el('label',null,'Wave'));const ws=el('select');
+  for(let n=0;n<=max;n++){const o=el('option',null,String(n+1).padStart(3,'0')+'  '+(list?list[n]:''));o.value=n;ws.append(o)}
+  const p=Object.assign({},T.wave,{max,opts:Array.from({length:max+1},(_,n)=>String(n+1).padStart(3,'0')+(list?' '+list[n]:''))});
+  const upd=()=>{ws.value=Math.min(max,getV(S.tones[prim()],p))};upd();onReg('T',p,upd);regEl('T',p,ww);
+  ws.onchange=()=>setParam(p,'T',+ws.value);ws.onfocus=()=>setFocus(p,'T');ww.append(ws);
+  box.append(gw,ww,ctl(T.gain,'T'));
+}
+/* ---- EFX-Parameter mit Namen je Typ ---- */
+function efxBox(box){
+  const type=S.common[12],defs=EFXW[type]||[];
+  defs.forEach((d,s)=>{if(!d)return;const p=P(13+s,`${EFXT[type]} ${d[0]}`,d[3],{short:d[0]});
+    if(EK[d[1]])p.opts=EK[d[1]].slice(0,d[3]+1);else p.f=v=>efxFmt(d,v);
+    box.append(p.opts?select(p,'C',null,d[0]):knob(p,'C',d[0]))});
+}
+/* ---- Controller-Matrix ---- */
+function matrixBox(box){
+  const g=el('div','matrix');g.append(el('span','mh','Quelle'));[1,2,3,4].forEach(i=>g.append(el('span','mh','Ziel / Tiefe '+i)));
+  const src=['MODULATION',PSRC[S.common[58]]||'—',PSRC[S.common[59]]||'—'];
+  MATRIX.forEach((row,c)=>{g.append(el('span',null,`CTRL ${c+1}: ${src[c]}`));
+    row.forEach(m=>{const cell=el('div','cell');const s=el('select');m.dest.opts.forEach((t,k)=>{const o=el('option',null,t);o.value=k;s.append(o)});
+      const upd=()=>s.value=getV(S.tones[prim()],m.dest);upd();onReg('T',m.dest,upd);s.onchange=()=>setParam(m.dest,'T',+s.value);s.onfocus=()=>setFocus(m.dest,'T');
+      cell.append(s,knob(m.depth,'T','Depth'));g.append(cell)})});
+  box.append(g);
+}
+/* ---- Hüllkurven-Editor ---- */
+function envBox(box,kind){
+  const e=ENV[kind],ps=envParams(kind),tP=ps.slice(0,4),lP=ps.slice(4);
+  const ad=el('div','ctls adsr');ad.append(el('span','adsrl','ADSR'));[[tP[0],'ATTACK'],[tP[1],'DECAY'],[lP[2],'SUSTAIN'],[tP[3],'RELEASE']].forEach(([p,l])=>ad.append(knob(p,'T',l)));box.append(ad);
+  const svg=SVG('svg',{class:'env',viewBox:'0 0 600 150'});box.append(svg);
+  let W=600,seg=0;const H=150,pad=12,susW=70;const dims=()=>{W=Math.round(svg.getBoundingClientRect().width)||600;seg=(W-2*pad-susW)/4;svg.setAttribute('viewBox',`0 0 ${W} ${H}`)};dims();
+  const lvY=v=>e.bip?H/2-((v-63)/63)*(H/2-pad):H-pad-(v/127)*(H-2*pad);
+  const yLv=y=>e.bip?Math.round(63-((y-H/2)/(H/2-pad))*63):Math.round((H-pad-y)/(H-2*pad)*127);
+  function pts(){const a=S.tones[prim()],t=tP.map(p=>a[p.o]),l=lP.map(p=>a[p.o]);let x=pad;const r=[[x,lvY(e.bip?63:0)]];
+    x+=t[0]/127*seg;r.push([x,lvY(l[0])]);x+=t[1]/127*seg;r.push([x,lvY(l[1])]);x+=t[2]/127*seg;r.push([x,lvY(l[2])]);
+    x+=susW;r.push([x,lvY(l[2])]);x+=t[3]/127*seg;r.push([x,lvY(e.end0?0:l[3])]);return r}
+  function draw(){
+    dims();const r=pts();svg.innerHTML='';
+    if(e.bip)svg.append(SVG('line',{x1:0,x2:W,y1:H/2,y2:H/2,stroke:'#333'}));
+    [['A',0,1],['D',1,2],['D2',2,3],['S',3,4],['R',4,5]].forEach(([n,a,b])=>{const t=SVG('text',{x:(r[a][0]+r[b][0])/2-4,y:H-2});t.textContent=n;svg.append(t)});
+    const d=r.map(p=>p.join(',')).join(' ');
+    svg.append(SVG('polygon',{points:`${pad},${lvY(e.bip?63:0)} ${d} ${r[5][0]},${lvY(e.bip?63:0)}`,fill:'rgba(201,214,90,.12)'}));
+    svg.append(SVG('polyline',{points:d,fill:'none',stroke:'var(--arc)','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
+    [1,2,3,5].forEach((i,hi)=>{const c=SVG('circle',{cx:r[i][0],cy:r[i][1],r:7,fill:'#e8e3c8',stroke:'#111',class:'h'});c.dataset.h=hi;svg.append(c)});
+  }
+  requestAnimationFrame(draw);new ResizeObserver(()=>draw()).observe(svg);[...tP,...lP].forEach(p=>onReg('T',p,draw));
+  let drag=null;
+  const toSvg=ev=>{const b=svg.getBoundingClientRect();return[(ev.clientX-b.left)/b.width*W,(ev.clientY-b.top)/b.height*H]};
+  svg.onpointerdown=ev=>{const h=ev.target.dataset&&ev.target.dataset.h;if(h==null)return;drag=+h;svg.setPointerCapture(ev.pointerId)};
+  svg.onpointermove=ev=>{if(drag==null)return;const[x,y]=toSvg(ev),r=pts();
+    const prevX=drag<3?r[drag][0]:r[4][0];setParam(tP[drag],'T',(x-prevX)/seg*127,{nofocus:true});
+    const li=drag<3?drag:(e.end0?-1:3);if(li>=0)setParam(lP[li],'T',yLv(y),{nofocus:true});
+    setFocus(tP[drag],'T')};
+  svg.onpointerup=svg.onpointercancel=()=>drag=null;
+  const c=el('div','ctls');ps.forEach(p=>c.append(knob(p,'T')));box.append(c);
+}
+/* ---- LFO-Vorschau ---- */
+function lfoBox(box,n){
+  const b=n===1?45:53,svg=SVG('svg',{class:'lfo',viewBox:'0 0 600 60',preserveAspectRatio:'none'});box.insertBefore(svg,box.children[1]);
+  const draw=()=>{const a=S.tones[prim()],w=a[b],rate=a[b+2],dly=a[b+4]/127*150,cyc=1+rate/127*7;let d='';let rs=7;
+    for(let x=0;x<=600;x+=2){let y=0;if(x>=dly){const ph=((x-dly)/(600-dly)*cyc)%1,ix=Math.floor((x-dly)/(600-dly)*cyc*4);
+      y=[2*Math.abs(2*ph-1)-1,Math.sin(ph*2*Math.PI),1-2*ph,ph<.5?1:-1,ph<.25?ph*4:ph<.5?1:ph<.75?1-(ph-.5)*4:-1,Math.sin(ix*12.9898)%1,Math.sin(x*.05+Math.sin(x*.013)*3),Math.sin(ph*6.28+Math.sin(ph*19)*1.4)][w]||0}
+      d+=(x?'L':'M')+x+' '+(30-y*24).toFixed(1)}
+    svg.innerHTML='';svg.append(SVG('path',{d,fill:'none',stroke:'var(--arc)','stroke-width':1.6,'vector-effect':'non-scaling-stroke'}))};
+  draw();[b,b+2,b+4].forEach(o=>onReg('T',{o},draw));
+}
+
+/* ================= Seite rendern ================= */
+function render(){
+  reg.clear();buildPanel();
+  const pg=PAGES[page],scope=pg.s,sh=$('#sheet');sh.innerHTML='';
+  $('#pgTitle').textContent=(scope==='C'?'Common · ':'Tone '+sel.map(t=>t+1).join('+')+' · ')+page;
+  $('#pgSub').textContent=pg.sub+(scope==='T'&&sel.length>1?' – Änderungen gelten für alle gewählten Tones':'');
+  pg.boxes.forEach(([title,items,extra])=>{
+    const box=el('div','box');const h=el('h3',null,title);box.append(h);
+    const c=el('div','ctls');
+    if(items==='wave')waveBox(c);else if(items==='efx'){h.append(el('small',null,EFXT[S.common[12]]));efxBox(c)}
+    else if(items==='matrix'){box.classList.add('wide');matrixBox(c)}
+    else items.forEach(p=>c.append(ctl(p,scope)));
+    box.append(c);
+    if(extra&&ENV[extra]){box.classList.add('wide');envBox(box,extra)}
+    if(extra==='lfo1')lfoBox(box,1);if(extra==='lfo2')lfoBox(box,2);
+    sh.append(box);
+  });
+  if(focus)setFocus(focus.p,focus.scope);else lcd();
+}
+// EFX-Typwechsel: Seite neu aufbauen (andere Parameter)
+const _sp=setParam;
+setParam=function(p,scope,v,o){_sp(p,scope,v,o);if(scope==='C'&&(p.o===12||p.o===58||p.o===59))render()};
+
+/* ================= .syx ================= */
+function saveSyx(){
+  const bytes=new Uint8Array(allMsgs().flat()),name=pname().trim().replace(/[^\w\-]+/g,'_')||'patch';
+  const a=el('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));a.download=name+'.syx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function loadSyx(f){
+  const b=Array.from(new Uint8Array(await f.arrayBuffer()));let n=0,s=-1;
+  for(let i=0;i<b.length;i++){if(b[i]===0xF0)s=i;else if(b[i]===0xF7&&s>=0){if(absorb(b.slice(s,i+1)))n++;s=-1}}
+  status(n?`${f.name}: ${n} Blöcke geladen`:'Keine JV-Patchdaten in der Datei');if(n&&out){await sleep(150);sendAll()}
+}
+
+/* ================= Klaviatur ================= */
+let oct=48;const held=new Set();
+function noteOn(n){if(held.has(n))return;held.add(n);tx([0x90|ch(),n,100]);mk(n,1)}
+function noteOff(n){if(!held.has(n))return;held.delete(n);tx([0x80|ch(),n,0]);mk(n,0)}
+function mk(n,on){const k=document.querySelector(`.k[data-n="${n}"]`);if(k)k.classList.toggle('dn',!!on)}
+function buildKbd(){
+  const kb=$('#kbd');kb.innerHTML='';const wh=[0,2,4,5,7,9,11],bl={0:1,2:3,5:6,7:8,9:10},W=15;let wi=0;
+  const add=(n,cls,l,w)=>{const k=el('div','k '+cls);k.dataset.n=n;k.style.left=l+'%';k.style.width=w+'%';kb.append(k)};
+  for(let o=0;o<2;o++)for(const s of wh){const n=oct+o*12+s;add(n,'w',wi*100/W,100/W);if(bl[s]!=null)add(n+1,'b',(wi+.65)*100/W,70/W);wi++}
+  add(oct+24,'w',wi*100/W,100/W);
+  kb.onpointerdown=e=>{const n=+e.target.dataset.n;if(!isNaN(n)){kb.setPointerCapture(e.pointerId);kb._n=n;noteOn(n)}};
+  kb.onpointerup=kb.onpointercancel=()=>{if(kb._n!=null)noteOff(kb._n);kb._n=null};
+  $('#octLbl').textContent=note(oct);
+}
+const KM={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,z:8,y:8,h:9,u:10,j:11,k:12};
+addEventListener('keydown',e=>{if(e.repeat||/INPUT|SELECT/.test(e.target.tagName))return;const k=KM[e.key.toLowerCase()];if(k!=null)noteOn(oct+12+k)});
+addEventListener('keyup',e=>{const k=KM[e.key.toLowerCase()];if(k!=null)noteOff(oct+12+k)});
+
+/* ================= Verdrahtung ================= */
+$('#connect').onclick=connect;$('#outSel').onchange=$('#inSel').onchange=pickPorts;
+$('#load').onclick=loadFromJV;$('#sendAll').onclick=sendAll;$('#saveSyx').onclick=saveSyx;
+$('#openSyx').onclick=()=>$('#file').click();$('#file').onchange=e=>{const f=e.target.files[0];if(f)loadSyx(f);e.target.value=''};
+$('#init').onclick=()=>{initState();render();if(out)sendAll()};
+$('#bank').onchange=()=>{const v=$('#bank').value;if(v!=='custom'){const[m,l]=v.split(',');$('#msb').value=m;$('#lsb').value=l}};
+$('#sendPc').onclick=()=>{tx([0xB0|ch(),0,+$('#msb').value]);tx([0xB0|ch(),32,+$('#lsb').value]);tx([0xC0|ch(),(+$('#pc').value-1)&127]);status('Patch gewählt…');setTimeout(loadFromJV,250)};
+$('#octDn').onclick=()=>{oct=Math.max(12,oct-12);buildKbd()};$('#octUp').onclick=()=>{oct=Math.min(96,oct+12);buildKbd()};
+$('#kbSel').onchange=pickPorts;
+$('#learn').onclick=()=>{learn=!learn;$('#learn').classList.toggle('armed',learn);status(learn?'Learn: Parameter antippen, dann Regler am Keyboard drehen':'Learn aus')};
+$('#clearMap').onclick=()=>{ccMap={};saveMap();status('Zuweisungen gelöscht')};
+showMaps();
+$('#panic').onclick=()=>{for(let c=0;c<16;c++){tx([0xB0|c,123,0]);tx([0xB0|c,120,0])}held.clear();document.querySelectorAll('.k.dn').forEach(k=>k.classList.remove('dn'))};
+['devId','chan'].forEach(id=>{const v=recall(id);if(v)$('#'+id).value=v;$('#'+id).onchange=()=>store(id,$('#'+id).value)});
+render();buildKbd();
+</script>
+</body>
+</html>
